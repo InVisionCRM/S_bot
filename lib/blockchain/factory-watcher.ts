@@ -236,7 +236,7 @@ export class FactoryWatcher {
     event: ethers.Log | ethers.EventLog,
     version: 'v1' | 'v2'
   ): Promise<PairCreatedEvent> {
-    if (!event.args || event.args.length < 3) {
+    if (!hasArgs(event) || event.args.length < 3) {
       throw new Error('Invalid PairCreated event: missing arguments');
     }
 

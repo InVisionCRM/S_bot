@@ -8,6 +8,10 @@ import { PULSECHAIN_CONFIG, FACTORY_ABI } from '@/config/pulsechain';
 import type { PairCreatedEvent } from '@/types/contracts';
 import { getServerProvider, createPulseChainProviderWithWebSocket } from './provider';
 
+function hasArgs(event: ethers.Log | ethers.EventLog): event is ethers.EventLog {
+  return (event as ethers.EventLog).args !== undefined;
+}
+
 /**
  * Factory watcher service
  * Listens for PairCreated events from PulseX factories
@@ -97,7 +101,7 @@ export class FactoryWatcher {
           // Process historical events
           console.log(`[FactoryWatcher] Found ${historicalEvents.length} historical pairs from ${factory.version} factory`);
           for (const event of historicalEvents) {
-            if (event && event.args) {
+            if (event && hasArgs(event)) {
               const pairEvent = await this.parsePairCreatedEvent(event, factory.version);
               callback(pairEvent);
             }
@@ -187,7 +191,7 @@ export class FactoryWatcher {
 
                 // Process each new event
                 for (const event of events) {
-                  if (event && event.args) {
+                  if (event && hasArgs(event)) {
                     const pairEvent = await this.parsePairCreatedEvent(event, factory.version);
 
                     console.log(`[FactoryWatcher] 🎉 NEW PAIR detected from ${factory.version} factory:`, {
@@ -326,7 +330,7 @@ export class FactoryWatcher {
         const events = await factory.contract.queryFilter(filter, fromBlock, 'latest');
 
         for (const event of events) {
-          if (event && event.args) {
+          if (event && hasArgs(event)) {
             const pairEvent = await this.parsePairCreatedEvent(event, factory.version);
             allPairs.push(pairEvent);
           }

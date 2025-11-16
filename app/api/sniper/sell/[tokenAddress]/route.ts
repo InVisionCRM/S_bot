@@ -11,12 +11,12 @@ export const runtime = 'nodejs';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tokenAddress: string } }
+  context: { params: Promise<{ tokenAddress: string }> }
 ) {
   try {
-    const { tokenAddress } = params;
+    const { tokenAddress } = await context.params;
     const body = await request.json().catch(() => ({}));
-    const { amount } = body;
+    const { amount } = body as { amount?: string };
 
     const sniper = getSniperEngine();
 

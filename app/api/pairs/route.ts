@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const watcher = new FactoryWatcher();
     const pairs = await watcher.getRecentPairs(blockRange);
 
-    let enrichedPairs: PairInfo[] = pairs;
+    let enrichedPairs: PairInfo[];
 
     if (includeTokenInfo) {
       // Enrich with token information (rate-limit friendly)
@@ -90,6 +90,25 @@ export async function GET(request: Request) {
       });
 
       enrichedPairs = results;
+    } else {
+      // Provide minimal token info to satisfy PairInfo type when not enriching
+      enrichedPairs = pairs.map((pair) => ({
+        ...pair,
+        token0Info: {
+          address: pair.token0,
+          name: 'Unknown',
+          symbol: 'UNKNOWN',
+          decimals: 18,
+          totalSupply: '0',
+        },
+        token1Info: {
+          address: pair.token1,
+          name: 'Unknown',
+          symbol: 'UNKNOWN',
+          decimals: 18,
+          totalSupply: '0',
+        },
+      }));
     }
 
     return NextResponse.json({

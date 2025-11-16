@@ -11,6 +11,10 @@ import { getServerProvider, createPulseChainProviderWithWebSocket } from './prov
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+function hasArgs(event: ethers.Log | ethers.EventLog): event is ethers.EventLog {
+  return (event as ethers.EventLog).args !== undefined;
+}
+
 /**
  * Mint event watcher service
  * Listens for Transfer events from zero address (minting)
@@ -125,7 +129,7 @@ export class MintWatcher {
       try {
         const events = await tokenContract.queryFilter(filter, fromBlock, 'latest');
         for (const event of events) {
-          if (event && event.args && event.args.length >= 3) {
+          if (event && hasArgs(event) && event.args.length >= 3) {
             const mintEvent = await this.parseTransferEvent(event, tokenAddress);
             callback(mintEvent);
           }
@@ -211,41 +215,38 @@ export class MintWatcher {
           // Check blocks for Transfer events from zero address to watched address
           for (let blockNum = lastCheckedBlock + 1; blockNum <= currentBlock; blockNum++) {
             try {
-              const block = await this.provider.getBlock(blockNum, true);
-              if (block && block.transactions) {
-                for (const tx of block.transactions) {
-                  if (typeof tx === 'object' && tx.logs) {
-                    for (const log of tx.logs) {
-                      // Check if this is a Transfer event from zero address to watched address
-                      if (
-                        log.topics &&
-                        log.topics.length >= 3 &&
-                        log.topics[0] === ethers.id('Transfer(address,address,uint256)') &&
-                        log.topics[1] === ethers.zeroPadValue(ZERO_ADDRESS, 32) &&
-                        log.topics[2] === ethers.zeroPadValue(this.watchedAddress, 32)
-                      ) {
-                        const mintEvent: MintEvent = {
-                          token: log.address,
-                          to: this.watchedAddress,
-                          amount: ethers.dataSlice(log.data, 0), // Decode the value
-                          blockNumber: blockNum,
-                          transactionHash: tx.hash,
-                          timestamp: block.timestamp,
-                          logIndex: log.index || 0,
-                        };
+              // Query logs for this specific block
+              const logs = await this.provider.getLogs({
+                fromBlock: blockNum,
+                toBlock: blockNum,
+                topics: [
+                  ethers.id('Transfer(address,address,uint256)'),
+                  ethers.zeroPadValue(ZERO_ADDRESS, 32),
+                  ethers.zeroPadValue(this.watchedAddress, 32),
+                ],
+              });
 
-                        // Decode amount properly
-                        try {
-                          const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], log.data);
-                          mintEvent.amount = decoded[0].toString();
-                        } catch (e) {
-                          // Keep raw data if decode fails
-                        }
+              if (logs.length > 0) {
+                const block = await this.provider.getBlock(blockNum);
+                for (const log of logs) {
+                  const mintEvent: MintEvent = {
+                    token: log.address,
+                    to: this.watchedAddress,
+                    amount: '0',
+                    blockNumber: blockNum,
+                    transactionHash: log.transactionHash,
+                    timestamp: block?.timestamp || Math.floor(Date.now() / 1000),
+                    logIndex: log.index || 0,
+                  };
 
-                        callback(mintEvent);
-                      }
-                    }
+                  try {
+                    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], log.data);
+                    mintEvent.amount = decoded[0].toString();
+                  } catch {
+                    // keep default
                   }
+
+                  callback(mintEvent);
                 }
               }
             } catch (error) {
@@ -325,7 +326,7 @@ export class MintWatcher {
     event: ethers.Log | ethers.EventLog,
     tokenAddress: string
   ): Promise<MintEvent> {
-    if (!event.args || event.args.length < 3) {
+    if (!hasArgs(event) || event.args.length < 3) {
       throw new Error('Invalid Transfer event: missing arguments');
     }
 

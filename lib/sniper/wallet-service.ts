@@ -146,7 +146,7 @@ export class WalletService {
    */
   async getGasPrice(): Promise<bigint> {
     const feeData = await this.provider.getFeeData();
-    return feeData.gasPrice || 0n;
+    return feeData.gasPrice || BigInt(0);
   }
 
   /**

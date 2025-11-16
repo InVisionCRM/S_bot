@@ -64,7 +64,7 @@ export class SwapService {
 
     // Calculate minimum output with slippage
     const slippageBigInt = BigInt(Math.floor(slippagePercent * 100)); // Convert to basis points
-    const minAmountOut = (amountOutMin * (10000n - slippageBigInt)) / 10000n;
+    const minAmountOut = (amountOutMin * (BigInt(10000) - slippageBigInt)) / BigInt(10000);
 
     console.log('[SwapService] Expected output:', {
       expectedTokens: ethers.formatUnits(amountOutMin, 18),
@@ -149,7 +149,7 @@ export class SwapService {
 
     // Calculate minimum output with slippage
     const slippageBigInt = BigInt(Math.floor(slippagePercent * 100));
-    const minAmountOut = (amountOutMin * (10000n - slippageBigInt)) / 10000n;
+    const minAmountOut = (amountOutMin * (BigInt(10000) - slippageBigInt)) / BigInt(10000);
 
     console.log('[SwapService] Expected output:', {
       expectedPLS: ethers.formatEther(amountOutMin),
